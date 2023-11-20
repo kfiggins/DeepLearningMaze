@@ -188,3 +188,32 @@ def determine_best_blob(blobs):
     return best_blob_index
 
 
+
+def evaluate_blob_performance(blob):
+    # Calculate the blob's distance to the end point
+    blob_position = (blob.x, blob.y)
+    current_distance = distance(blob_position, END_POINT)
+
+    # Return the negative distance as the performance score
+    # Smaller distances (closer to the end point) result in higher scores
+    return -current_distance
+
+# After a certain number of episodes, average the weights of the best performing blobs
+def average_best_performers(nets, blobs, top_percentage=0.2):
+    performances = [evaluate_blob_performance(blob) for blob in blobs]
+    sorted_indices = sorted(range(len(blobs)), key=lambda i: performances[i], reverse=True)
+    top_indices = sorted_indices[:int(len(blobs) * top_percentage)]
+
+    average_weights = None
+    for idx in top_indices:
+        net_weights = nets[idx].state_dict()
+        if average_weights is None:
+            average_weights = {k: v.clone() for k, v in net_weights.items()}
+        else:
+            for k, v in net_weights.items():
+                average_weights[k] += v
+
+    for k in average_weights.keys():
+        average_weights[k] /= len(top_indices)
+
+    return average_weights

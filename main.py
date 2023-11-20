@@ -2,7 +2,7 @@ import pygame
 import sys
 from blob import Blob
 from blob_net import BlobNet
-from utils import calculate_reward, check_collision, determine_best_blob, draw_maze, explode, get_observation, move_blob, reset_blobs, select_action, show_start_screen
+from utils import average_best_performers, calculate_reward, check_collision, determine_best_blob, draw_maze, explode, get_observation, move_blob, reset_blobs, select_action, show_start_screen
 from constants import NUMBER_OF_BLOBS, WIDTH, HEIGHT, WALLS, END_POINT
 import torch
 import torch.nn as nn
@@ -119,14 +119,11 @@ def main():
             clock.tick(60)
 
 
-                # Determine the best performing blob
-        best_blob_index = determine_best_blob(blobs) 
-
-        # Copy the best blob's network to others
-        best_net_state_dict = nets[best_blob_index].state_dict()
-        for i, net in enumerate(nets):
-            if i != best_blob_index:
-                net.load_state_dict(best_net_state_dict)
+        
+        if episode % 10 == 0:  # Averaging after every 10 episodes
+            averaged_weights = average_best_performers(nets, blobs)
+            for net in nets:
+                net.load_state_dict(averaged_weights)
 
         # Step the schedulers after each episode
         # for scheduler in schedulers:
