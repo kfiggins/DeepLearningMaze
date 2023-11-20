@@ -13,7 +13,7 @@ def check_collision(blob, walls):
     return False
 
 def calculate_reward(blob, has_collided):
-    end_reward = 100  # Reward for reaching near the end point
+    end_reward = 50  # Reward for reaching near the end point
     collision_penalty = 10  # Base penalty for collision
     goal_tolerance = 25  # Define a square around the endpoint
     jitter_penalty = 0.75  # Penalty to discourage jittering behavior
@@ -26,6 +26,7 @@ def calculate_reward(blob, has_collided):
     # Reward for being within the goal area
     if abs(current_position[0] - END_POINT[0]) <= goal_tolerance and abs(current_position[1] - END_POINT[1]) <= goal_tolerance:
         blob.points_scored += 1
+        blob.alive = False
         return end_reward
 
     # Collision penalty
@@ -160,7 +161,7 @@ def reset_blobs(blobs):
         blob.alive = True  # Reset the alive status
 
 
-epsilon = 0.3  # Probability of random action
+epsilon = 0.1  # Probability of random action
 
 def select_action(net, observation):
     if random.random() < epsilon:
@@ -170,3 +171,20 @@ def select_action(net, observation):
         # Use the network to decide the action
         output = net(observation)
         return torch.argmax(output).item()
+
+
+def determine_best_blob(blobs):
+    # Initialize variables to store the best blob and the minimum distance
+    best_blob_index = None
+    min_distance = float('inf')
+
+    for idx, blob in enumerate(blobs):
+        blob_position = (blob.x, blob.y)
+        current_distance = distance(blob_position, END_POINT)
+        if current_distance < min_distance:
+            min_distance = current_distance
+            best_blob_index = idx
+
+    return best_blob_index
+
+

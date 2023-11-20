@@ -2,7 +2,7 @@ import pygame
 import sys
 from blob import Blob
 from blob_net import BlobNet
-from utils import calculate_reward, check_collision, draw_maze, explode, get_observation, move_blob, reset_blobs, select_action, show_start_screen
+from utils import calculate_reward, check_collision, determine_best_blob, draw_maze, explode, get_observation, move_blob, reset_blobs, select_action, show_start_screen
 from constants import NUMBER_OF_BLOBS, WIDTH, HEIGHT, WALLS, END_POINT
 import torch
 import torch.nn as nn
@@ -21,10 +21,10 @@ def main():
     blobs = [Blob(200, 200) for _ in range(NUMBER_OF_BLOBS)]
 
     # Initialize neural networks, one for each blob
-    nets = [BlobNet(2, 10, 8) for _ in range(NUMBER_OF_BLOBS)]
+    nets = [BlobNet(2, 10, 10, 8) for _ in range(NUMBER_OF_BLOBS)]
 
     # Set up optimizers for each network (for training)
-    optimizers = [optim.Adam(net.parameters(), lr=0.001) for net in nets]
+    optimizers = [optim.Adam(net.parameters(), lr=0.005) for net in nets]
 
     # Learning rate schedulers to adjust the learning rate over time
     # schedulers = [lr_scheduler.StepLR(optimizer, step_size=50, gamma=0.1) for optimizer in optimizers]
@@ -117,6 +117,16 @@ def main():
 
             pygame.display.update()
             clock.tick(60)
+
+
+                # Determine the best performing blob
+        best_blob_index = determine_best_blob(blobs) 
+
+        # Copy the best blob's network to others
+        best_net_state_dict = nets[best_blob_index].state_dict()
+        for i, net in enumerate(nets):
+            if i != best_blob_index:
+                net.load_state_dict(best_net_state_dict)
 
         # Step the schedulers after each episode
         # for scheduler in schedulers:
