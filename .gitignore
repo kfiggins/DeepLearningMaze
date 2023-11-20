@@ -1,0 +1,3 @@
+# Ignore all in myenv
+myenv/
+__pycache__/
