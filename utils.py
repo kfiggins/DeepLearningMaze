@@ -1,9 +1,11 @@
 import pygame
-from constants import START_POINT, WALLS, END_POINT, WIDTH, HEIGHT
+from constants import START_POINT, WALLS, WIDTH, HEIGHT
 import torch
 import sys
 import random
 import math
+
+
 
 def check_collision(blob, walls):
     blob_rect = pygame.Rect(blob.x - blob.radius, blob.y - blob.radius, 
@@ -13,7 +15,7 @@ def check_collision(blob, walls):
             return True
     return False
 
-def calculate_reward(blob, has_collided):
+def calculate_reward(blob, has_collided, END_POINT):
     end_reward = 100  # Reward for reaching near the end point
     collision_penalty = 50  # Base penalty for collision
     goal_tolerance = 25  # Define a square around the endpoint
@@ -59,7 +61,7 @@ def is_jittering_detected(movement_history):
 def distance(point1, point2):
     return ((point1[0] - point2[0]) ** 2 + (point1[1] - point2[1]) ** 2) ** 0.5
 
-def draw_maze(screen, walls):
+def draw_maze(screen, walls, END_POINT):
     WHITE = (255, 255, 255)
 
     # Define the thickness of the walls
@@ -113,7 +115,9 @@ def show_start_screen(screen, button_rect):
         draw_start_button(screen, button_rect, "Start Game")
         pygame.display.update()
 
-def get_observation(blob):
+import math
+
+def get_observation(blob, END_POINT):
     # Normalized position
     normalized_x = blob.x / WIDTH
     normalized_y = blob.y / HEIGHT
@@ -128,10 +132,16 @@ def get_observation(blob):
     exit_direction_magnitude = math.sqrt(exit_direction_x ** 2 + exit_direction_y ** 2)
     normalized_exit_direction = [exit_direction_x / exit_direction_magnitude, exit_direction_y / exit_direction_magnitude]
 
+    # Calculate normalized distance to the end point
+    distance_to_end = math.sqrt((END_POINT[0] - blob.x) ** 2 + (END_POINT[1] - blob.y) ** 2)
+    max_possible_distance = math.sqrt(WIDTH ** 2 + HEIGHT ** 2)  # Diagonal of the field
+    normalized_distance_to_end = distance_to_end / max_possible_distance
+
     # Combine all data
-    observation = torch.tensor(position_data + normalized_sensor_data + normalized_exit_direction, dtype=torch.float)
+    observation = torch.tensor(position_data + normalized_sensor_data + normalized_exit_direction + [normalized_distance_to_end], dtype=torch.float)
 
     return observation
+
 
 
 
@@ -178,33 +188,8 @@ def select_action(net, observation):
         return torch.argmax(output).item()
 
 
-def determine_best_blob(blobs):
-    # Initialize variables to store the best blob and the minimum distance
-    best_blob_index = None
-    min_distance = float('inf')
-
-    for idx, blob in enumerate(blobs):
-        blob_position = (blob.x, blob.y)
-        current_distance = distance(blob_position, END_POINT)
-        if current_distance < min_distance:
-            min_distance = current_distance
-            best_blob_index = idx
-
-    return best_blob_index
-
-
-
-def evaluate_blob_performance(blob):
-    # Calculate the blob's distance to the end point
-    blob_position = (blob.x, blob.y)
-    current_distance = distance(blob_position, END_POINT)
-
-    # Return the negative distance as the performance score
-    # Smaller distances (closer to the end point) result in higher scores
-    return -current_distance
-
 # After a certain number of episodes, average the weights of the best performing blobs
-def average_best_performers(nets, blobs, top_percentage=0.05):
+def average_best_performers(nets, blobs, END_POINT, top_percentage=0.05):
     # Rank blobs first by points scored, then by distance to the end point
     blobs_ranked = sorted(blobs, key=lambda blob: (-blob.points_scored, distance((blob.x, blob.y), END_POINT)))
 
@@ -245,3 +230,16 @@ def line_intersection(line1, line2):
         # Return the intersection point
         return x1 + t * (x2 - x1), y1 + t * (y2 - y1)
     return None
+
+def randomize_end_point():
+    left_boundary = 100 + 25
+    right_boundary = 700 - 25
+    top_boundary = 100 + 25
+    bottom_boundary = 500 - 25
+
+    # Generate random coordinates within the boundaries
+    x = random.randint(left_boundary, right_boundary)
+    y = random.randint(top_boundary, bottom_boundary)
+
+    return (x, y)
+

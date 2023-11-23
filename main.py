@@ -2,14 +2,16 @@ import pygame
 import sys
 from blob import Blob
 from blob_net import BlobNet
-from utils import average_best_performers, calculate_reward, check_collision, determine_best_blob, draw_maze, explode, get_observation, move_blob, reset_blobs, select_action, show_start_screen
-from constants import NUMBER_OF_BLOBS, WIDTH, HEIGHT, WALLS, END_POINT
+from utils import average_best_performers, calculate_reward, check_collision, draw_maze, explode, get_observation, move_blob, randomize_end_point, reset_blobs, select_action, show_start_screen
+from constants import NUMBER_OF_BLOBS, WIDTH, HEIGHT, WALLS
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.optim.lr_scheduler as lr_scheduler
 
+
 def main():
+    
     pygame.init()
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
     pygame.display.set_caption("Maze Game")
@@ -21,7 +23,7 @@ def main():
     blobs = [Blob(200, 200) for _ in range(NUMBER_OF_BLOBS)]
 
     # Initialize neural networks, one for each blob
-    nets = [BlobNet(12, 10, 10, 4) for _ in range(NUMBER_OF_BLOBS)]
+    nets = [BlobNet(13, 10, 10, 4) for _ in range(NUMBER_OF_BLOBS)]
 
     # Set up optimizers for each network (for training)
     optimizers = [optim.Adam(net.parameters(), lr=0.005) for net in nets]
@@ -43,7 +45,7 @@ def main():
         if episode == 0:
             # Show start screen only before the first episode
             show_start_screen(screen, button_rect)
-            
+        END_POINT = randomize_end_point()
         start_time = pygame.time.get_ticks()  # Get the current time
         game_state = "running"
         clock = pygame.time.Clock()
@@ -71,7 +73,7 @@ def main():
             total_exits_text = font.render(f'Total Exits: {total_exits}', True, (255, 255, 255))
             screen.blit(total_exits_text, (WIDTH - 200, 10))  # Adjust position as needed
 
-            wall_rects = draw_maze(screen, WALLS)
+            wall_rects = draw_maze(screen, WALLS, END_POINT)
 
             all_dead = all(not blob.alive for blob in blobs)
             if all_dead:
@@ -85,7 +87,7 @@ def main():
                     continue  # Skip to the next blob if this one is dead
                 old_position = (blob.x, blob.y)
                 blob.update_sensor_data(WALLS)
-                observation = get_observation(blob)
+                observation = get_observation(blob, END_POINT)
                 output = net(observation)
 
                 # Decide action
@@ -98,7 +100,7 @@ def main():
                     blob.alive = False
                 # Calculate reward
                 new_position = (blob.x, blob.y)
-                reward = calculate_reward(blob, has_collided)
+                reward = calculate_reward(blob, has_collided, END_POINT)
                 
                 # Convert reward to a tensor
                 reward_tensor = torch.tensor([reward], dtype=torch.float)
@@ -115,7 +117,10 @@ def main():
 
                 # Inside your main game loop, after drawing blobs
                 # Inside your main game loop, after drawing blobs
-                for idx, blob in enumerate(blobs):
+                # Sort blobs by points_scored in descending order
+                sorted_blobs = sorted(blobs, key=lambda blob: blob.points_scored, reverse=True)
+
+                for idx, blob in enumerate(sorted_blobs):
                     # Draw a small dot with the blob's color
                     pygame.draw.circle(screen, blob.color, (30, 50 + idx * 30), 10)
 
@@ -130,7 +135,7 @@ def main():
 
         
         if episode % 10 == 0:  # Averaging after every 10 episodes
-            averaged_weights = average_best_performers(nets, blobs)
+            averaged_weights = average_best_performers(nets, blobs, END_POINT)
             for net in nets:
                 net.load_state_dict(averaged_weights)
 

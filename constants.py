@@ -1,4 +1,7 @@
 # Screen dimensions
+
+
+
 WIDTH = 800
 HEIGHT = 600
 
@@ -16,6 +19,7 @@ WALLS = [
 
 START_POINT = (110, 110)
 # End point
-END_POINT = (650, 450)
+# END_POINT = (650, 450)
+
 
 NUMBER_OF_BLOBS = 50 
