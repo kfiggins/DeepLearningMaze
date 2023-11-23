@@ -3,6 +3,7 @@ from constants import START_POINT, WALLS, END_POINT, WIDTH, HEIGHT
 import torch
 import sys
 import random
+import math
 
 def check_collision(blob, walls):
     blob_rect = pygame.Rect(blob.x - blob.radius, blob.y - blob.radius, 
@@ -13,11 +14,11 @@ def check_collision(blob, walls):
     return False
 
 def calculate_reward(blob, has_collided):
-    end_reward = 50  # Reward for reaching near the end point
-    collision_penalty = 10  # Base penalty for collision
+    end_reward = 100  # Reward for reaching near the end point
+    collision_penalty = 50  # Base penalty for collision
     goal_tolerance = 25  # Define a square around the endpoint
     jitter_penalty = 0.75  # Penalty to discourage jittering behavior
-    movement_consistency_bonus = 0.3  # Bonus for consistent movement
+    movement_consistency_bonus = 0.2  # Bonus for consistent movement
 
     current_position = blob.movement_history[-1]
     old_distance = distance(blob.movement_history[0], END_POINT)
@@ -113,10 +114,26 @@ def show_start_screen(screen, button_rect):
         pygame.display.update()
 
 def get_observation(blob):
-    # Normalize the coordinates to a range your network can work with
+    # Normalized position
     normalized_x = blob.x / WIDTH
     normalized_y = blob.y / HEIGHT
-    return torch.tensor([normalized_x, normalized_y], dtype=torch.float)
+    position_data = [normalized_x, normalized_y]
+
+    # Normalized sensor data
+    normalized_sensor_data = [distance / blob.sensor_range for distance in blob.sensor_data]
+
+    # Calculate and normalize the direction to the exit
+    exit_direction_x = (END_POINT[0] - blob.x) / WIDTH
+    exit_direction_y = (END_POINT[1] - blob.y) / HEIGHT
+    exit_direction_magnitude = math.sqrt(exit_direction_x ** 2 + exit_direction_y ** 2)
+    normalized_exit_direction = [exit_direction_x / exit_direction_magnitude, exit_direction_y / exit_direction_magnitude]
+
+    # Combine all data
+    observation = torch.tensor(position_data + normalized_sensor_data + normalized_exit_direction, dtype=torch.float)
+
+    return observation
+
+
 
 def move_blob(blob, action):
     step_size = 3
@@ -129,18 +146,6 @@ def move_blob(blob, action):
     elif action == 2:  # Up
         new_y -= step_size
     elif action == 3:  # Down
-        new_y += step_size
-    elif action == 4:  # Up-Left
-        new_x -= step_size
-        new_y -= step_size
-    elif action == 5:  # Up-Right
-        new_x += step_size
-        new_y -= step_size
-    elif action == 6:  # Down-Left
-        new_x -= step_size
-        new_y += step_size
-    elif action == 7:  # Down-Right
-        new_x += step_size
         new_y += step_size
 
     # Update the position using the update_position method
@@ -199,10 +204,12 @@ def evaluate_blob_performance(blob):
     return -current_distance
 
 # After a certain number of episodes, average the weights of the best performing blobs
-def average_best_performers(nets, blobs, top_percentage=0.2):
-    performances = [evaluate_blob_performance(blob) for blob in blobs]
-    sorted_indices = sorted(range(len(blobs)), key=lambda i: performances[i], reverse=True)
-    top_indices = sorted_indices[:int(len(blobs) * top_percentage)]
+def average_best_performers(nets, blobs, top_percentage=0.05):
+    # Rank blobs first by points scored, then by distance to the end point
+    blobs_ranked = sorted(blobs, key=lambda blob: (-blob.points_scored, distance((blob.x, blob.y), END_POINT)))
+
+    # Select the top performers
+    top_indices = [blobs.index(blob) for blob in blobs_ranked[:int(len(blobs) * top_percentage)]]
 
     average_weights = None
     for idx in top_indices:
@@ -217,3 +224,24 @@ def average_best_performers(nets, blobs, top_percentage=0.2):
         average_weights[k] /= len(top_indices)
 
     return average_weights
+
+
+def line_intersection(line1, line2):
+    # Unpack the line segment coordinates
+    x1, y1, x2, y2 = line1
+    x3, y3, x4, y4 = line2
+
+    # Calculate denominators
+    den = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
+    if den == 0:
+        return None  # Lines are parallel
+
+    # Calculate intersection point
+    t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / den
+    u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / den
+
+    # Check if intersection is within line segments
+    if 0 <= t <= 1 and 0 <= u <= 1:
+        # Return the intersection point
+        return x1 + t * (x2 - x1), y1 + t * (y2 - y1)
+    return None

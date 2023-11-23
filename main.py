@@ -21,7 +21,7 @@ def main():
     blobs = [Blob(200, 200) for _ in range(NUMBER_OF_BLOBS)]
 
     # Initialize neural networks, one for each blob
-    nets = [BlobNet(2, 10, 10, 8) for _ in range(NUMBER_OF_BLOBS)]
+    nets = [BlobNet(12, 10, 10, 4) for _ in range(NUMBER_OF_BLOBS)]
 
     # Set up optimizers for each network (for training)
     optimizers = [optim.Adam(net.parameters(), lr=0.005) for net in nets]
@@ -34,7 +34,7 @@ def main():
     game_state = "running"
 
     clock = pygame.time.Clock()
-    max_episode_duration = 5000  # Maximum time limit for each episode, in milliseconds
+    max_episode_duration = 7000  # Maximum time limit for each episode, in milliseconds
     
     # Initialize success count for each blob
     # success_counts = [0] * NUMBER_OF_BLOBS
@@ -63,6 +63,14 @@ def main():
             screen.fill((0, 0, 0))
             episode_text = font.render(f'Episode: {episode + 1}', True, (255, 255, 255))
             screen.blit(episode_text, (10, 10))  # Adjust position as needed
+
+            # Calculate total exits from all blobs
+            total_exits = sum(blob.points_scored for blob in blobs)
+
+            # Display total exits
+            total_exits_text = font.render(f'Total Exits: {total_exits}', True, (255, 255, 255))
+            screen.blit(total_exits_text, (WIDTH - 200, 10))  # Adjust position as needed
+
             wall_rects = draw_maze(screen, WALLS)
 
             all_dead = all(not blob.alive for blob in blobs)
@@ -76,6 +84,7 @@ def main():
                 if not blob.alive:
                     continue  # Skip to the next blob if this one is dead
                 old_position = (blob.x, blob.y)
+                blob.update_sensor_data(WALLS)
                 observation = get_observation(blob)
                 output = net(observation)
 
