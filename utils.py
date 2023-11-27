@@ -15,9 +15,9 @@ def check_collision(blob, walls):
             return True
     return False
 
-def calculate_reward(blob, has_collided, END_POINT):
+def calculate_reward(blob, END_POINT, has_collided):
     end_reward = 100  # Reward for reaching near the end point
-    collision_penalty = 50  # Base penalty for collision
+    collision_penalty = 5  # Base penalty for collision
     goal_tolerance = 25  # Define a square around the endpoint
     jitter_penalty = 0.75  # Penalty to discourage jittering behavior
     movement_consistency_bonus = 0.2  # Bonus for consistent movement
@@ -32,10 +32,11 @@ def calculate_reward(blob, has_collided, END_POINT):
         blob.alive = False
         return end_reward
 
-    # Collision penalty
+    # # Collision penalty
     if has_collided:
-        penalty_reduction_factor = max(0, (1 - new_distance / old_distance))
-        return -collision_penalty + penalty_reduction_factor * collision_penalty
+        # penalty_reduction_factor = max(0, (1 - new_distance / old_distance))
+        # return -collision_penalty + penalty_reduction_factor * collision_penalty
+        return -collision_penalty
 
     # Analyze movement pattern for jittering
     jittering_detected = is_jittering_detected(blob.movement_history)
@@ -145,7 +146,7 @@ def get_observation(blob, END_POINT):
 
 
 
-def move_blob(blob, action):
+def move_blob(blob, action, wall_rects):
     step_size = 3
     new_x, new_y = blob.x, blob.y  # Initialize with current position
 
@@ -158,8 +159,21 @@ def move_blob(blob, action):
     elif action == 3:  # Down
         new_y += step_size
 
-    # Update the position using the update_position method
-    blob.update_position(new_x, new_y)
+    # Check for collisions with walls using a circular collision detection
+    collision = False
+    for wall in wall_rects:
+        # Check if the distance between the center of the blob and any point on the wall is less than the radius
+        if wall.collidepoint(new_x, new_y):
+            collision = True
+            break
+
+    if not collision:
+        # Update the position only if there is no collision
+        blob.update_position(new_x, new_y)
+        return False  # No collision occurred
+    else:
+        return True  # Collision occurred
+
 
 
 

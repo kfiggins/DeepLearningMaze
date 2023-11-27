@@ -85,7 +85,7 @@ def main():
             for blob, net, optimizer in zip(blobs, nets, optimizers):
                 if not blob.alive:
                     continue  # Skip to the next blob if this one is dead
-                old_position = (blob.x, blob.y)
+                # old_position = (blob.x, blob.y)
                 blob.update_sensor_data(WALLS)
                 observation = get_observation(blob, END_POINT)
                 output = net(observation)
@@ -93,14 +93,14 @@ def main():
                 # Decide action
                 action = select_action(net, observation)
 
-                move_blob(blob, action)
-                has_collided = check_collision(blob, wall_rects)
-                if has_collided:
-                    explode(blob, screen)
-                    blob.alive = False
+                has_collided = move_blob(blob, action, wall_rects)
+                # has_collided = check_collision(blob, wall_rects)
+                # if has_collided:
+                    # explode(blob, screen)
+                    # blob.alive = False
                 # Calculate reward
-                new_position = (blob.x, blob.y)
-                reward = calculate_reward(blob, has_collided, END_POINT)
+                # new_position = (blob.x, blob.y)
+                reward = calculate_reward(blob, END_POINT, has_collided)
                 
                 # Convert reward to a tensor
                 reward_tensor = torch.tensor([reward], dtype=torch.float)
@@ -134,10 +134,10 @@ def main():
 
 
         
-        if episode % 10 == 0:  # Averaging after every 10 episodes
-            averaged_weights = average_best_performers(nets, blobs, END_POINT)
-            for net in nets:
-                net.load_state_dict(averaged_weights)
+        # if episode % 10 == 0:  # Averaging after every 10 episodes
+        #     averaged_weights = average_best_performers(nets, blobs, END_POINT)
+        #     for net in nets:
+        #         net.load_state_dict(averaged_weights)
 
         # Step the schedulers after each episode
         # for scheduler in schedulers:
